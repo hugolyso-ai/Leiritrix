@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/App";
 import { Link } from "react-router-dom";
 import { salesService } from "@/services/salesService";
@@ -67,11 +67,7 @@ export default function Sales() {
   const [partnerFilter, setPartnerFilter] = useState("");
   const [deleteId, setDeleteId] = useState(null);
 
-  useEffect(() => {
-    fetchData();
-  }, [statusFilter, categoryFilter, partnerFilter]);
-
-  const fetchData = async () => {
+  const fetchData = useCallback(async () => {
     try {
       const partnersData = await partnersService.getPartners();
       setPartners(partnersData);
@@ -99,7 +95,11 @@ export default function Sales() {
     } finally {
       setLoading(false);
     }
-  };
+  }, [statusFilter, categoryFilter, partnerFilter, search]);
+
+  useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   const handleSearch = (e) => {
     e.preventDefault();

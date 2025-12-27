@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useAuth } from "@/App";
 import { useNavigate, useParams } from "react-router-dom";
 import { salesService } from "@/services/salesService";
@@ -91,11 +91,7 @@ export default function SaleDetail({ editMode = false }) {
   const [editCommission, setEditCommission] = useState("");
   const [isEditing, setIsEditing] = useState(editMode);
 
-  useEffect(() => {
-    fetchSale();
-  }, [id]);
-
-  const fetchSale = async () => {
+  const fetchSale = useCallback(async () => {
     try {
       const saleData = await salesService.getSaleById(id);
       setSale(saleData);
@@ -112,7 +108,11 @@ export default function SaleDetail({ editMode = false }) {
     } finally {
       setLoading(false);
     }
-  };
+  }, [id, navigate]);
+
+  useEffect(() => {
+    fetchSale();
+  }, [fetchSale]);
 
   const handleSave = async () => {
     setSaving(true);
