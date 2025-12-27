@@ -50,14 +50,14 @@ const ROLES = [
 ];
 
 export default function Users() {
-  const { token, user: currentUser } = useAuth();
+  const { user: currentUser } = useAuth();
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
-  
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -67,13 +67,12 @@ export default function Users() {
 
   useEffect(() => {
     fetchUsers();
-  }, [token]);
+  }, []);
 
   const fetchUsers = async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`${API}/users`, { headers });
-      setUsers(response.data);
+      const usersData = await usersService.getUsers(true);
+      setUsers(usersData);
     } catch (error) {
       toast.error("Erro ao carregar utilizadores");
     } finally {
@@ -103,7 +102,7 @@ export default function Users() {
       toast.error("Nome e Email são obrigatórios");
       return;
     }
-    
+
     if (!editingUser && !formData.password) {
       toast.error("Password é obrigatória para novos utilizadores");
       return;
@@ -111,32 +110,33 @@ export default function Users() {
 
     setSaving(true);
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      
       if (editingUser) {
-        // Update user
         const updateData = {
           name: formData.name,
           email: formData.email,
           role: formData.role
         };
-        if (formData.password) {
-          updateData.password = formData.password;
-        }
-        
-        const response = await axios.put(`${API}/users/${editingUser.id}`, updateData, { headers });
-        setUsers(users.map(u => u.id === editingUser.id ? response.data : u));
+
+        const updated = await usersService.updateUser(editingUser.id, updateData);
+        setUsers(users.map(u => u.id === editingUser.id ? updated : u));
         toast.success("Utilizador atualizado");
       } else {
-        // Create user
-        const response = await axios.post(`${API}/auth/register`, formData, { headers });
-        setUsers([...users, response.data]);
+        const { user: newUser } = await authService.signUp(
+          formData.email,
+          formData.password,
+          {
+            email: formData.email,
+            name: formData.name,
+            role: formData.role
+          }
+        );
+        setUsers([...users, newUser]);
         toast.success("Utilizador criado");
       }
-      
+
       setModalOpen(false);
     } catch (error) {
-      const message = error.response?.data?.detail || "Erro ao guardar utilizador";
+      const message = error.message || "Erro ao guardar utilizador";
       toast.error(message);
     } finally {
       setSaving(false);
@@ -145,14 +145,13 @@ export default function Users() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
+
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      await axios.delete(`${API}/users/${deleteId}`, { headers });
+      await usersService.deleteUser(deleteId);
       setUsers(users.filter(u => u.id !== deleteId));
       toast.success("Utilizador eliminado");
     } catch (error) {
-      const message = error.response?.data?.detail || "Erro ao eliminar utilizador";
+      const message = error.message || "Erro ao eliminar utilizador";
       toast.error(message);
     } finally {
       setDeleteId(null);
@@ -161,9 +160,9 @@ export default function Users() {
 
   const toggleUserActive = async (userId) => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.put(`${API}/users/${userId}/toggle-active`, {}, { headers });
-      setUsers(users.map(u => u.id === userId ? { ...u, active: response.data.active } : u));
+      const user = users.find(u => u.id === userId);
+      const updated = await usersService.toggleUserActive(userId, !user.active);
+      setUsers(users.map(u => u.id === userId ? updated : u));
       toast.success("Estado atualizado");
     } catch (error) {
       toast.error("Erro ao atualizar estado");

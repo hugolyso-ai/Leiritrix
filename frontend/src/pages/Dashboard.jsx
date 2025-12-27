@@ -54,7 +54,7 @@ const CATEGORY_LABELS = {
 const PIE_COLORS = ["#c8f31d", "#3b82f6", "#f59e0b"];
 
 export default function Dashboard() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const [metrics, setMetrics] = useState(null);
   const [monthlyStats, setMonthlyStats] = useState([]);
   const [alerts, setAlerts] = useState([]);
@@ -62,21 +62,45 @@ export default function Dashboard() {
 
   useEffect(() => {
     fetchData();
-  }, [token]);
+  }, []);
 
   const fetchData = async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      
-      const [metricsRes, statsRes, alertsRes] = await Promise.all([
-        axios.get(`${API}/dashboard/metrics`, { headers }),
-        axios.get(`${API}/dashboard/monthly-stats?months=6`, { headers }),
-        axios.get(`${API}/alerts/loyalty`, { headers })
-      ]);
+      const stats = await salesService.getSaleStatistics();
+      const sales = await salesService.getSales();
 
-      setMetrics(metricsRes.data);
-      setMonthlyStats(statsRes.data);
-      setAlerts(alertsRes.data);
+      const monthlySales = {};
+      sales.forEach(sale => {
+        const month = new Date(sale.created_at).toLocaleDateString('pt-PT', { year: 'numeric', month: 'short' });
+        if (!monthlySales[month]) {
+          monthlySales[month] = { month, vendas: 0, valor: 0 };
+        }
+        monthlySales[month].vendas++;
+        monthlySales[month].valor += sale.contract_value || 0;
+      });
+
+      const sortedMonthlyStats = Object.values(monthlySales)
+        .sort((a, b) => new Date(a.month) - new Date(b.month))
+        .slice(-6);
+
+      const expiringSoon = sales.filter(sale => {
+        if (sale.status !== 'ativo' || !sale.active_date) return false;
+        const activeDate = new Date(sale.active_date);
+        const monthsActive = (new Date() - activeDate) / (1000 * 60 * 60 * 24 * 30);
+        return monthsActive >= 11;
+      });
+
+      setMetrics({
+        total_sales: stats.total,
+        active_sales: stats.active,
+        pending_sales: stats.pending,
+        monthly_revenue: sortedMonthlyStats[sortedMonthlyStats.length - 1]?.valor || 0,
+        sales_by_category: stats.byCategory,
+        total_value: stats.totalValue
+      });
+
+      setMonthlyStats(sortedMonthlyStats);
+      setAlerts(expiringSoon);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
     } finally {

@@ -29,52 +29,48 @@ export const useAuth = () => {
 
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
-  const [token, setToken] = useState(localStorage.getItem("token"));
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     const initAuth = async () => {
-      if (token) {
-        try {
-          const response = await axios.get(`${API}/auth/me`, {
-            headers: { Authorization: `Bearer ${token}` }
-          });
-          setUser(response.data);
-        } catch (error) {
-          console.error("Auth error:", error);
-          localStorage.removeItem("token");
-          setToken(null);
-        }
+      try {
+        const currentUser = await authService.getCurrentUser();
+        setUser(currentUser);
+      } catch (error) {
+        console.error("Auth error:", error);
+      } finally {
+        setLoading(false);
       }
-      setLoading(false);
     };
+
     initAuth();
-  }, [token]);
 
-  const login = async (email, password) => {
+    const { data: subscription } = authService.onAuthStateChange((event, session, userProfile) => {
+      if (event === 'SIGNED_IN') {
+        setUser(userProfile);
+      } else if (event === 'SIGNED_OUT') {
+        setUser(null);
+      }
+    });
+
+    return () => {
+      subscription?.unsubscribe();
+    };
+  }, []);
+
+  const logout = async () => {
     try {
-      const response = await axios.post(`${API}/auth/login`, { email, password });
-      const { token: newToken, user: userData } = response.data;
-      localStorage.setItem("token", newToken);
-      setToken(newToken);
-      setUser(userData);
-      return { success: true };
+      await authService.signOut();
+      setUser(null);
+      toast.success("Logout efetuado com sucesso");
     } catch (error) {
-      const message = error.response?.data?.detail || "Erro ao fazer login";
-      return { success: false, error: message };
+      toast.error("Erro ao fazer logout");
     }
-  };
-
-  const logout = () => {
-    localStorage.removeItem("token");
-    setToken(null);
-    setUser(null);
   };
 
   const value = {
     user,
-    token,
-    login,
+    setUser,
     logout,
     loading,
     isAuthenticated: !!user,

@@ -37,14 +37,13 @@ import {
 } from "lucide-react";
 
 export default function Partners() {
-  const { token } = useAuth();
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingPartner, setEditingPartner] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
-  
+
   const [formData, setFormData] = useState({
     name: "",
     email: "",
@@ -54,13 +53,12 @@ export default function Partners() {
 
   useEffect(() => {
     fetchPartners();
-  }, [token]);
+  }, []);
 
   const fetchPartners = async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`${API}/partners/all`, { headers });
-      setPartners(response.data);
+      const partnersData = await partnersService.getPartners(true);
+      setPartners(partnersData);
     } catch (error) {
       toast.error("Erro ao carregar parceiros");
     } finally {
@@ -93,18 +91,16 @@ export default function Partners() {
 
     setSaving(true);
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      
       if (editingPartner) {
-        const response = await axios.put(`${API}/partners/${editingPartner.id}`, formData, { headers });
-        setPartners(partners.map(p => p.id === editingPartner.id ? response.data : p));
+        const updated = await partnersService.updatePartner(editingPartner.id, formData);
+        setPartners(partners.map(p => p.id === editingPartner.id ? updated : p));
         toast.success("Parceiro atualizado");
       } else {
-        const response = await axios.post(`${API}/partners`, formData, { headers });
-        setPartners([...partners, response.data]);
+        const created = await partnersService.createPartner({ ...formData, active: true });
+        setPartners([...partners, created]);
         toast.success("Parceiro criado");
       }
-      
+
       setModalOpen(false);
     } catch (error) {
       toast.error("Erro ao guardar parceiro");
@@ -115,19 +111,11 @@ export default function Partners() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
+
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.delete(`${API}/partners/${deleteId}`, { headers });
-      
-      if (response.data.message.includes("desativado")) {
-        // Partner was deactivated, not deleted
-        setPartners(partners.map(p => p.id === deleteId ? { ...p, active: false } : p));
-        toast.success("Parceiro desativado (tem vendas associadas)");
-      } else {
-        setPartners(partners.filter(p => p.id !== deleteId));
-        toast.success("Parceiro eliminado");
-      }
+      await partnersService.deletePartner(deleteId);
+      setPartners(partners.filter(p => p.id !== deleteId));
+      toast.success("Parceiro eliminado");
     } catch (error) {
       toast.error("Erro ao eliminar parceiro");
     } finally {
@@ -137,9 +125,9 @@ export default function Partners() {
 
   const toggleActive = async (partnerId) => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.put(`${API}/partners/${partnerId}/toggle-active`, {}, { headers });
-      setPartners(partners.map(p => p.id === partnerId ? { ...p, active: response.data.active } : p));
+      const partner = partners.find(p => p.id === partnerId);
+      const updated = await partnersService.togglePartnerActive(partnerId, !partner.active);
+      setPartners(partners.map(p => p.id === partnerId ? updated : p));
       toast.success("Status atualizado");
     } catch (error) {
       toast.error("Erro ao atualizar status");

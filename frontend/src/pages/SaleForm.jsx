@@ -45,28 +45,25 @@ const ESCALOES_GAS = [
 ];
 
 export default function SaleForm() {
-  const { token } = useAuth();
+  const { user } = useAuth();
   const navigate = useNavigate();
 
   const [loading, setLoading] = useState(false);
   const [partners, setPartners] = useState([]);
   const [loadingPartners, setLoadingPartners] = useState(true);
-  
+
   const [formData, setFormData] = useState({
-    // Client data
     client_name: "",
     client_email: "",
     client_phone: "",
     client_address: "",
     client_nif: "",
-    // Contract data
     category: "",
     sale_type: "",
     partner_id: "",
     contract_value: "",
     loyalty_months: "",
     notes: "",
-    // Energy specific
     energy_type: "",
     cpe: "",
     potencia: "",
@@ -76,13 +73,12 @@ export default function SaleForm() {
 
   useEffect(() => {
     fetchPartners();
-  }, [token]);
+  }, []);
 
   const fetchPartners = async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      const response = await axios.get(`${API}/partners`, { headers });
-      setPartners(response.data);
+      const partnersData = await partnersService.getPartners();
+      setPartners(partnersData);
     } catch (error) {
       console.error("Error fetching partners:", error);
       toast.error("Erro ao carregar parceiros");
@@ -130,9 +126,10 @@ export default function SaleForm() {
     setLoading(true);
 
     try {
-      const headers = { Authorization: `Bearer ${token}` };
       const payload = {
         ...formData,
+        seller_id: user.id,
+        status: 'em_negociacao',
         contract_value: parseFloat(formData.contract_value) || 0,
         loyalty_months: parseInt(formData.loyalty_months) || 0,
         sale_type: formData.sale_type || null,
@@ -143,11 +140,11 @@ export default function SaleForm() {
         escalao: formData.escalao || null
       };
 
-      await axios.post(`${API}/sales`, payload, { headers });
+      await salesService.createSale(payload);
       toast.success("Venda criada com sucesso");
       navigate("/sales");
     } catch (error) {
-      const message = error.response?.data?.detail || "Erro ao guardar venda";
+      const message = error.message || "Erro ao guardar venda";
       toast.error(message);
     } finally {
       setLoading(false);

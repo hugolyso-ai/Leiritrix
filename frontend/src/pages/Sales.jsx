@@ -57,7 +57,7 @@ const TYPE_MAP = {
 };
 
 export default function Sales() {
-  const { token, isAdminOrBackoffice } = useAuth();
+  const { user, isAdminOrBackoffice } = useAuth();
   const [sales, setSales] = useState([]);
   const [partners, setPartners] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -69,25 +69,30 @@ export default function Sales() {
 
   useEffect(() => {
     fetchData();
-  }, [token, statusFilter, categoryFilter, partnerFilter]);
+  }, [statusFilter, categoryFilter, partnerFilter]);
 
   const fetchData = async () => {
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      
-      // Fetch partners for filter
-      const partnersRes = await axios.get(`${API}/partners`, { headers });
-      setPartners(partnersRes.data);
-      
-      // Fetch sales
-      const params = new URLSearchParams();
-      if (statusFilter && statusFilter !== "all") params.append("status", statusFilter);
-      if (categoryFilter && categoryFilter !== "all") params.append("category", categoryFilter);
-      if (partnerFilter && partnerFilter !== "all") params.append("partner_id", partnerFilter);
-      if (search) params.append("search", search);
+      const partnersData = await partnersService.getPartners();
+      setPartners(partnersData);
 
-      const salesRes = await axios.get(`${API}/sales?${params.toString()}`, { headers });
-      setSales(salesRes.data);
+      const filters = {};
+      if (statusFilter && statusFilter !== "all") filters.status = statusFilter;
+      if (categoryFilter && categoryFilter !== "all") filters.category = categoryFilter;
+      if (partnerFilter && partnerFilter !== "all") filters.partnerId = partnerFilter;
+
+      const salesData = await salesService.getSales(null, filters);
+
+      let filtered = salesData;
+      if (search) {
+        filtered = salesData.filter(sale =>
+          sale.client_name?.toLowerCase().includes(search.toLowerCase()) ||
+          sale.client_email?.toLowerCase().includes(search.toLowerCase()) ||
+          sale.client_phone?.includes(search)
+        );
+      }
+
+      setSales(filtered);
     } catch (error) {
       console.error("Error fetching data:", error);
       toast.error("Erro ao carregar dados");
@@ -103,10 +108,9 @@ export default function Sales() {
 
   const handleDelete = async () => {
     if (!deleteId) return;
-    
+
     try {
-      const headers = { Authorization: `Bearer ${token}` };
-      await axios.delete(`${API}/sales/${deleteId}`, { headers });
+      await salesService.deleteSale(deleteId);
       toast.success("Venda eliminada com sucesso");
       setSales(sales.filter(s => s.id !== deleteId));
     } catch (error) {
