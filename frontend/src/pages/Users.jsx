@@ -336,38 +336,38 @@ export default function Users() {
             <div>
               <Label className="form-label">
                 Palavra-passe {editingUser ? "(deixe vazio para manter)" : "*"}
-                <span className="text-white/50 text-xs ml-2">
-                  (min 8 caracteres, 1 maiúscula, 1 minúscula, 1 dígito, 1 especial)
-                </span>
               </Label>
-              <div className="flex gap-2 mt-1">
-                <div className="relative flex-1">
-                  <Input
-                    type={showPassword ? "text" : "password"}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="form-input pr-10"
-                    placeholder="••••••••"
-                    data-testid="user-password-input"
-                  />
+              <div className="relative mt-1">
+                <Input
+                  type={showPassword ? "text" : "password"}
+                  value={formData.password}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                  className="form-input pr-24"
+                  placeholder={editingUser ? "Deixe vazio para manter a atual" : "Digite ou gere uma password"}
+                  data-testid="user-password-input"
+                />
+                <div className="absolute right-2 top-1/2 -translate-y-1/2 flex gap-1">
+                  <button
+                    type="button"
+                    onClick={handleGeneratePassword}
+                    className="text-[#c8f31d] hover:text-[#d4f92e] transition-colors p-1"
+                    title="Gerar password automática"
+                  >
+                    <RefreshCw size={18} />
+                  </button>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                    className="text-white/50 hover:text-white transition-colors p-1"
+                    title={showPassword ? "Ocultar password" : "Mostrar password"}
                   >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
-                <Button
-                  type="button"
-                  onClick={handleGeneratePassword}
-                  variant="outline"
-                  className="form-input px-3"
-                  title="Sugerir password segura (editável)"
-                >
-                  <RefreshCw size={18} />
-                </Button>
               </div>
+              <p className="text-xs text-white/40 mt-1">
+                Min 8 caracteres: 1 maiúscula, 1 minúscula, 1 número, 1 especial
+              </p>
             </div>
             <div>
               <Label className="form-label">
@@ -379,13 +379,14 @@ export default function Users() {
                   value={formData.confirmPassword}
                   onChange={(e) => setFormData({ ...formData, confirmPassword: e.target.value })}
                   className="form-input pr-10"
-                  placeholder="••••••••"
+                  placeholder={editingUser ? "Deixe vazio para manter a atual" : "Confirme a password"}
                   data-testid="user-confirm-password-input"
                 />
                 <button
                   type="button"
                   onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white transition-colors p-1"
+                  title={showConfirmPassword ? "Ocultar password" : "Mostrar password"}
                 >
                   {showConfirmPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
