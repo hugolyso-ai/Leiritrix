@@ -15,9 +15,9 @@ Sistema de gestão de vendas para parceiros Leiritrix.
 
 ## Tecnologias
 
-- Frontend: React 19, React Router, Tailwind CSS, shadcn/ui
+- Frontend: React 18, Vite, React Router, Tailwind CSS, shadcn/ui
 - Backend: Supabase (PostgreSQL, Auth, RLS)
-- Build: Create React App com CRACO
+- Build: Vite (rápido e otimizado)
 
 ## Estrutura de Pastas
 
@@ -39,13 +39,13 @@ frontend/
 
 ```bash
 cd frontend
-npm install --legacy-peer-deps
+npm install
 ```
 
 ### Desenvolvimento
 
 ```bash
-npm start
+npm run dev
 ```
 
 O frontend executa em http://localhost:3000
@@ -60,8 +60,8 @@ npm run build
 
 As variáveis de ambiente já estão configuradas no ficheiro `.env`:
 
-- `REACT_APP_SUPABASE_URL`: URL do projeto Supabase
-- `REACT_APP_SUPABASE_ANON_KEY`: Chave pública do Supabase
+- `VITE_SUPABASE_URL`: URL do projeto Supabase
+- `VITE_SUPABASE_ANON_KEY`: Chave pública do Supabase
 
 ## Base de Dados
 
