@@ -236,15 +236,24 @@ export default function SaleDetail({ editMode = false }) {
       {/* Alert for loyalty ending soon */}
       {daysUntilEnd !== null && daysUntilEnd <= 210 && sale.status === "ativo" && (
         <Card className="card-leiritrix border-l-4 border-l-[#c8f31d]" data-testid="loyalty-alert">
-          <CardContent className="p-4 flex items-center gap-4">
-            <AlertTriangle className="text-[#c8f31d]" size={24} />
-            <div>
-              <p className="text-white font-medium">Fidelização a terminar</p>
-              <p className="text-white/60 text-sm">
-                Este contrato termina em <span className="text-[#c8f31d] font-bold">{daysUntilEnd} dias</span>. 
-                Inicie a negociação para renovação.
-              </p>
+          <CardContent className="p-4 flex items-center justify-between gap-4">
+            <div className="flex items-center gap-4">
+              <AlertTriangle className="text-[#c8f31d]" size={24} />
+              <div>
+                <p className="text-white font-medium">Fidelização a terminar</p>
+                <p className="text-white/60 text-sm">
+                  Este contrato termina em <span className="text-[#c8f31d] font-bold">{daysUntilEnd} dias</span>.
+                  Inicie a negociação para renovação.
+                </p>
+              </div>
             </div>
+            <Button
+              onClick={() => navigate(`/sales/new?refid_from=${sale.id}`)}
+              className="btn-primary btn-primary-glow whitespace-nowrap"
+              data-testid="create-refid-btn"
+            >
+              Inserir Venda Refid
+            </Button>
           </CardContent>
         </Card>
       )}

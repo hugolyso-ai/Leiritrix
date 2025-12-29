@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { partnersService } from "@/services/partnersService";
+import { generatePassword, validatePassword } from "@/utils/passwordGenerator";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -23,9 +24,9 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
 import { toast } from "sonner";
-import { 
-  Building2, 
-  Plus, 
+import {
+  Building2,
+  Plus,
   Edit2,
   Trash2,
   Power,
@@ -33,7 +34,12 @@ import {
   Loader2,
   Mail,
   Phone,
-  User
+  User,
+  Eye,
+  EyeOff,
+  RefreshCw,
+  Copy,
+  Check
 } from "lucide-react";
 
 export default function Partners() {
@@ -43,12 +49,16 @@ export default function Partners() {
   const [editingPartner, setEditingPartner] = useState(null);
   const [saving, setSaving] = useState(false);
   const [deleteId, setDeleteId] = useState(null);
+  const [createdPassword, setCreatedPassword] = useState(null);
+  const [showPassword, setShowPassword] = useState(false);
+  const [passwordCopied, setPasswordCopied] = useState(false);
 
   const [formData, setFormData] = useState({
     name: "",
     email: "",
     contact_person: "",
-    phone: ""
+    phone: "",
+    password: ""
   });
 
   useEffect(() => {
@@ -68,7 +78,15 @@ export default function Partners() {
 
   const openCreateModal = () => {
     setEditingPartner(null);
-    setFormData({ name: "", email: "", contact_person: "", phone: "" });
+    const generatedPassword = generatePassword(12);
+    setFormData({
+      name: "",
+      email: "",
+      contact_person: "",
+      phone: "",
+      password: generatedPassword
+    });
+    setShowPassword(false);
     setModalOpen(true);
   };
 
@@ -78,8 +96,10 @@ export default function Partners() {
       name: partner.name || "",
       email: partner.email || "",
       contact_person: partner.contact_person || "",
-      phone: partner.phone || ""
+      phone: partner.phone || "",
+      password: ""
     });
+    setShowPassword(false);
     setModalOpen(true);
   };
 
@@ -89,23 +109,57 @@ export default function Partners() {
       return;
     }
 
+    if (!editingPartner) {
+      const passwordError = validatePassword(formData.password);
+      if (passwordError) {
+        toast.error(passwordError);
+        return;
+      }
+    }
+
     setSaving(true);
     try {
       if (editingPartner) {
-        const updated = await partnersService.updatePartner(editingPartner.id, formData);
+        const updateData = {
+          name: formData.name,
+          email: formData.email,
+          contact_person: formData.contact_person,
+          phone: formData.phone
+        };
+        const updated = await partnersService.updatePartner(editingPartner.id, updateData);
         setPartners(partners.map(p => p.id === editingPartner.id ? updated : p));
         toast.success("Parceiro atualizado");
+        setModalOpen(false);
       } else {
-        const created = await partnersService.createPartner({ ...formData, active: true });
+        const created = await partnersService.createPartner({
+          ...formData,
+          active: true
+        });
         setPartners([...partners, created]);
-        toast.success("Parceiro criado");
+        setCreatedPassword(formData.password);
+        setPasswordCopied(false);
+        setModalOpen(false);
       }
-
-      setModalOpen(false);
     } catch (error) {
       toast.error("Erro ao guardar parceiro");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleGenerateNewPassword = () => {
+    const newPassword = generatePassword(12);
+    setFormData({ ...formData, password: newPassword });
+  };
+
+  const copyPasswordToClipboard = async () => {
+    try {
+      await navigator.clipboard.writeText(createdPassword);
+      setPasswordCopied(true);
+      toast.success("Password copiada");
+      setTimeout(() => setPasswordCopied(false), 2000);
+    } catch (error) {
+      toast.error("Erro ao copiar password");
     }
   };
 
@@ -302,6 +356,42 @@ export default function Partners() {
                 data-testid="partner-phone-input"
               />
             </div>
+            {!editingPartner && (
+              <div>
+                <Label className="form-label">
+                  Password Inicial *
+                  <span className="text-white/50 text-xs ml-2">(min 8 caracteres, 1 maiúscula, 1 minúscula, 1 dígito, 1 especial)</span>
+                </Label>
+                <div className="flex gap-2 mt-1">
+                  <div className="relative flex-1">
+                    <Input
+                      type={showPassword ? "text" : "password"}
+                      value={formData.password}
+                      onChange={(e) => setFormData({ ...formData, password: e.target.value })}
+                      className="form-input pr-10"
+                      placeholder="Password"
+                      data-testid="partner-password-input"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowPassword(!showPassword)}
+                      className="absolute right-2 top-1/2 -translate-y-1/2 text-white/50 hover:text-white"
+                    >
+                      {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                    </button>
+                  </div>
+                  <Button
+                    type="button"
+                    onClick={handleGenerateNewPassword}
+                    variant="outline"
+                    className="form-input px-3"
+                    title="Gerar nova password"
+                  >
+                    <RefreshCw size={18} />
+                  </Button>
+                </div>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button
@@ -330,6 +420,46 @@ export default function Partners() {
         </DialogContent>
       </Dialog>
 
+      {/* Password Created Dialog */}
+      <AlertDialog open={!!createdPassword} onOpenChange={() => setCreatedPassword(null)}>
+        <AlertDialogContent className="bg-[#082d32] border-white/10">
+          <AlertDialogHeader>
+            <AlertDialogTitle className="text-white">Parceiro Criado com Sucesso</AlertDialogTitle>
+            <AlertDialogDescription className="text-white/60">
+              <p className="mb-4">
+                Password inicial gerada. O parceiro deve alterar a password no primeiro login.
+              </p>
+              <div className="bg-[#0d474f] p-4 rounded-lg">
+                <Label className="text-white text-sm mb-2 block">Password</Label>
+                <div className="flex items-center gap-2">
+                  <code className="flex-1 text-[#c8f31d] font-mono text-lg bg-[#082d32] px-3 py-2 rounded">
+                    {createdPassword}
+                  </code>
+                  <Button
+                    onClick={copyPasswordToClipboard}
+                    size="sm"
+                    className="btn-primary"
+                  >
+                    {passwordCopied ? <Check size={18} /> : <Copy size={18} />}
+                  </Button>
+                </div>
+              </div>
+              <p className="text-white/40 text-xs mt-3">
+                Certifique-se de copiar e partilhar esta password com o parceiro. Não será possível visualizá-la novamente.
+              </p>
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogAction
+              onClick={() => setCreatedPassword(null)}
+              className="btn-primary btn-primary-glow"
+            >
+              Fechar
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+
       {/* Delete Confirmation */}
       <AlertDialog open={!!deleteId} onOpenChange={() => setDeleteId(null)}>
         <AlertDialogContent className="bg-[#082d32] border-white/10">
@@ -341,7 +471,7 @@ export default function Partners() {
           </AlertDialogHeader>
           <AlertDialogFooter>
             <AlertDialogCancel className="btn-secondary">Cancelar</AlertDialogCancel>
-            <AlertDialogAction 
+            <AlertDialogAction
               onClick={handleDelete}
               className="bg-red-500 hover:bg-red-600 text-white"
             >

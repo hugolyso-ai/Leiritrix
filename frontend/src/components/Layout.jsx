@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-const LOGO_URL = "https://images.pexels.com/photos/6954174/pexels-photo-6954174.jpeg?auto=compress&cs=tinysrgb&w=150&h=50&dpr=2";
+const LOGO_URL = "/leiritrix.png";
 
 export const Layout = () => {
   const { user, logout, isAdmin, isAdminOrBackoffice } = useAuth();

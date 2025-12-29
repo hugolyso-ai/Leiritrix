@@ -4,6 +4,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from "react-route
 import { Toaster } from "@/components/ui/sonner";
 import { toast } from "sonner";
 import { authService } from "@/services/authService";
+import { PasswordChangeModal } from "@/components/PasswordChangeModal";
 
 // Pages
 import Login from "@/pages/Login";
@@ -30,12 +31,16 @@ export const useAuth = () => {
 const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [showPasswordChange, setShowPasswordChange] = useState(false);
 
   useEffect(() => {
     const initAuth = async () => {
       try {
         const currentUser = await authService.getCurrentUser();
         setUser(currentUser);
+        if (currentUser?.must_change_password) {
+          setShowPasswordChange(true);
+        }
       } catch (error) {
         console.error("Auth error:", error);
       } finally {
@@ -48,8 +53,12 @@ const AuthProvider = ({ children }) => {
     const { data: { subscription } } = authService.onAuthStateChange((event, session, userProfile) => {
       if (event === 'SIGNED_IN') {
         setUser(userProfile);
+        if (userProfile?.must_change_password) {
+          setShowPasswordChange(true);
+        }
       } else if (event === 'SIGNED_OUT') {
         setUser(null);
+        setShowPasswordChange(false);
       }
     });
 
@@ -62,10 +71,18 @@ const AuthProvider = ({ children }) => {
     try {
       await authService.signOut();
       setUser(null);
+      setShowPasswordChange(false);
       toast.success("Logout efetuado com sucesso");
     } catch (error) {
       toast.error("Erro ao fazer logout");
     }
+  };
+
+  const handlePasswordChanged = async (currentPassword, newPassword) => {
+    await authService.changePassword(currentPassword, newPassword);
+    setShowPasswordChange(false);
+    const updatedUser = await authService.getCurrentUser();
+    setUser(updatedUser);
   };
 
   const value = {
@@ -78,7 +95,15 @@ const AuthProvider = ({ children }) => {
     isAdminOrBackoffice: user?.role === "admin" || user?.role === "backoffice"
   };
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
+  return (
+    <AuthContext.Provider value={value}>
+      {children}
+      <PasswordChangeModal
+        open={showPasswordChange}
+        onPasswordChanged={handlePasswordChanged}
+      />
+    </AuthContext.Provider>
+  );
 };
 
 // Protected Route

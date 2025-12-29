@@ -68,6 +68,33 @@ export const authService = {
     return data;
   },
 
+  async changePassword(currentPassword, newPassword) {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error('User not authenticated');
+
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
+      email: user.email,
+      password: currentPassword,
+    });
+
+    if (signInError) throw new Error('Password atual incorreta');
+
+    const { error: updateError } = await supabase.auth.updateUser({
+      password: newPassword,
+    });
+
+    if (updateError) throw updateError;
+
+    const { error: profileError } = await supabase
+      .from('users')
+      .update({ must_change_password: false })
+      .eq('id', user.id);
+
+    if (profileError) throw profileError;
+
+    return true;
+  },
+
   onAuthStateChange(callback) {
     return supabase.auth.onAuthStateChange((event, session) => {
       (async () => {

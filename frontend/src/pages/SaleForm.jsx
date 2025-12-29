@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useAuth } from "@/App";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { salesService } from "@/services/salesService";
 import { partnersService } from "@/services/partnersService";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -47,10 +47,12 @@ const ESCALOES_GAS = [
 export default function SaleForm() {
   const { user } = useAuth();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
 
   const [loading, setLoading] = useState(false);
   const [partners, setPartners] = useState([]);
   const [loadingPartners, setLoadingPartners] = useState(true);
+  const [loadingRefidData, setLoadingRefidData] = useState(false);
 
   const [formData, setFormData] = useState({
     client_name: "",
@@ -73,7 +75,11 @@ export default function SaleForm() {
 
   useEffect(() => {
     fetchPartners();
-  }, []);
+    const refidFrom = searchParams.get('refid_from');
+    if (refidFrom) {
+      loadRefidData(refidFrom);
+    }
+  }, [searchParams]);
 
   const fetchPartners = async () => {
     try {
@@ -84,6 +90,31 @@ export default function SaleForm() {
       toast.error("Erro ao carregar parceiros");
     } finally {
       setLoadingPartners(false);
+    }
+  };
+
+  const loadRefidData = async (saleId) => {
+    setLoadingRefidData(true);
+    try {
+      const originalSale = await salesService.getSaleById(saleId);
+      setFormData(prev => ({
+        ...prev,
+        client_name: originalSale.client_name || "",
+        client_email: originalSale.client_email || "",
+        client_phone: originalSale.client_phone || "",
+        client_address: originalSale.client_address || "",
+        client_nif: originalSale.client_nif || "",
+        category: originalSale.category || "",
+        sale_type: "refid",
+        partner_id: originalSale.partner_id || "",
+        loyalty_months: originalSale.loyalty_months?.toString() || "",
+      }));
+      toast.success("Dados carregados para venda Refid");
+    } catch (error) {
+      console.error("Error loading refid data:", error);
+      toast.error("Erro ao carregar dados da venda original");
+    } finally {
+      setLoadingRefidData(false);
     }
   };
 
