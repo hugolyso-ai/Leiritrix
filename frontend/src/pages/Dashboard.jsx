@@ -19,8 +19,8 @@ import {
   CheckCircle
 } from "lucide-react";
 import {
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
   XAxis,
   YAxis,
   CartesianGrid,
@@ -28,7 +28,8 @@ import {
   ResponsiveContainer,
   PieChart,
   Pie,
-  Cell
+  Cell,
+  Legend
 } from "recharts";
 
 const STATUS_MAP = {
@@ -69,19 +70,77 @@ export default function Dashboard() {
       const stats = await salesService.getSaleStatistics();
       const sales = await salesService.getSales();
 
-      const monthlySales = {};
+      const now = new Date();
+      const currentYear = now.getFullYear();
+      const currentMonth = now.getMonth();
+      const lastYear = currentYear - 1;
+
+      const currentYearSales = [];
+      const lastYearSales = [];
+      const currentMonthSales = [];
+      const lastYearSameMonthSales = [];
+
       sales.forEach(sale => {
-        const month = new Date(sale.created_at).toLocaleDateString('pt-PT', { year: 'numeric', month: 'short' });
-        if (!monthlySales[month]) {
-          monthlySales[month] = { month, vendas: 0, valor: 0 };
+        const saleDate = new Date(sale.created_at);
+        const saleYear = saleDate.getFullYear();
+        const saleMonth = saleDate.getMonth();
+
+        if (saleYear === currentYear && saleMonth === currentMonth) {
+          currentMonthSales.push(sale);
         }
-        monthlySales[month].vendas++;
-        monthlySales[month].valor += sale.contract_value || 0;
+
+        if (saleYear === lastYear && saleMonth === currentMonth) {
+          lastYearSameMonthSales.push(sale);
+        }
+
+        if (saleYear === currentYear) {
+          currentYearSales.push(sale);
+        } else if (saleYear === lastYear) {
+          lastYearSales.push(sale);
+        }
       });
 
-      const sortedMonthlyStats = Object.values(monthlySales)
-        .sort((a, b) => new Date(a.month) - new Date(b.month))
-        .slice(-6);
+      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+      const yoyData = monthNames.map((month, index) => {
+        const currentYearMonthSales = currentYearSales.filter(s => new Date(s.created_at).getMonth() === index);
+        const lastYearMonthSales = lastYearSales.filter(s => new Date(s.created_at).getMonth() === index);
+
+        return {
+          month,
+          anoCorrente: currentYearMonthSales.length,
+          anoAnterior: lastYearMonthSales.length,
+        };
+      });
+
+      const calcMensalidadesTelecom = (salesList) => {
+        return salesList
+          .filter(s => s.category === 'telecomunicacoes' && s.status === 'ativo')
+          .reduce((sum, s) => sum + (s.contract_value || 0), 0);
+      };
+
+      const calcTotalComissions = (salesList) => {
+        return salesList.reduce((sum, s) => sum + (s.commission || 0), 0);
+      };
+
+      const calcComissoesAtivas = (salesList) => {
+        return salesList
+          .filter(s => s.status === 'ativo')
+          .reduce((sum, s) => sum + (s.commission || 0), 0);
+      };
+
+      const currentMonthMensalidades = calcMensalidadesTelecom(currentMonthSales);
+      const lastYearMonthMensalidades = calcMensalidadesTelecom(lastYearSameMonthSales);
+
+      const currentMonthCommissions = calcTotalComissions(currentMonthSales);
+      const lastYearMonthCommissions = calcTotalComissions(lastYearSameMonthSales);
+
+      const currentMonthComissoesAtivas = calcComissoesAtivas(currentMonthSales);
+      const lastYearMonthComissoesAtivas = calcComissoesAtivas(lastYearSameMonthSales);
+
+      const calcPercentageChange = (current, previous) => {
+        if (previous === 0) return current > 0 ? 100 : 0;
+        return ((current - previous) / previous) * 100;
+      };
 
       const expiringSoon = sales.filter(sale => {
         if (sale.status !== 'ativo' || !sale.active_date) return false;
@@ -101,15 +160,19 @@ export default function Dashboard() {
       });
 
       setMetrics({
-        total_sales: stats.total,
-        active_sales: stats.active,
-        pending_sales: stats.pending,
-        monthly_revenue: sortedMonthlyStats[sortedMonthlyStats.length - 1]?.valor || 0,
+        sales_this_month: currentMonthSales.length,
+        total_mensalidades: currentMonthMensalidades,
+        mensalidades_yoy: calcPercentageChange(currentMonthMensalidades, lastYearMonthMensalidades),
+        total_commission: currentMonthCommissions,
+        commission_yoy: calcPercentageChange(currentMonthCommissions, lastYearMonthCommissions),
+        comissoes_previstas: stats.comissoes_previstas || 0,
+        comissoes_ativas: currentMonthComissoesAtivas,
+        comissoes_ativas_yoy: calcPercentageChange(currentMonthComissoesAtivas, lastYearMonthComissoesAtivas),
         sales_by_category: stats.byCategory,
-        total_value: stats.totalValue
+        sales_by_status: stats.byStatus
       });
 
-      setMonthlyStats(sortedMonthlyStats);
+      setMonthlyStats(yoyData);
       setAlerts(expiringSoon);
     } catch (error) {
       console.error("Error fetching dashboard data:", error);
@@ -136,22 +199,19 @@ export default function Dashboard() {
     return new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' }).format(value || 0);
   };
 
+  const formatPercentage = (value) => {
+    const sign = value >= 0 ? '+' : '';
+    return `${sign}${value.toFixed(1)}%`;
+  };
+
+  const getPercentageColor = (value) => {
+    return value >= 0 ? 'text-green-400' : 'text-red-400';
+  };
+
   return (
     <div className="space-y-6" data-testid="dashboard">
       {/* Metrics Grid - Row 1 */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card className="metric-card" data-testid="metric-total-sales">
-          <CardContent className="p-0">
-            <div className="flex items-start justify-between">
-              <div>
-                <p className="metric-value">{metrics?.total_sales || 0}</p>
-                <p className="metric-label">Total de Vendas</p>
-              </div>
-              <ShoppingCart className="text-[#c8f31d] opacity-50" size={24} />
-            </div>
-          </CardContent>
-        </Card>
-
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <Card className="metric-card" data-testid="metric-month-sales">
           <CardContent className="p-0">
             <div className="flex items-start justify-between">
@@ -171,7 +231,14 @@ export default function Dashboard() {
                 <p className="metric-value font-mono text-2xl">
                   {formatCurrency(metrics?.total_mensalidades)}
                 </p>
-                <p className="metric-label">Mensalidades Telecom</p>
+                <p className="metric-label">
+                  Mensalidades Telecom
+                  {metrics?.mensalidades_yoy !== undefined && (
+                    <span className={`ml-2 text-xs font-mono ${getPercentageColor(metrics.mensalidades_yoy)}`}>
+                      {formatPercentage(metrics.mensalidades_yoy)} vs ano anterior
+                    </span>
+                  )}
+                </p>
               </div>
               <Phone className="text-[#c8f31d] opacity-50" size={24} />
             </div>
@@ -185,7 +252,14 @@ export default function Dashboard() {
                 <p className="metric-value font-mono text-2xl">
                   {formatCurrency(metrics?.total_commission)}
                 </p>
-                <p className="metric-label">Total Comissões</p>
+                <p className="metric-label">
+                  Total Comissões
+                  {metrics?.commission_yoy !== undefined && (
+                    <span className={`ml-2 text-xs font-mono ${getPercentageColor(metrics.commission_yoy)}`}>
+                      {formatPercentage(metrics.commission_yoy)} vs ano anterior
+                    </span>
+                  )}
+                </p>
               </div>
               <Euro className="text-[#c8f31d] opacity-50" size={24} />
             </div>
@@ -224,6 +298,11 @@ export default function Dashboard() {
                 <p className="metric-label flex items-center gap-2">
                   <CheckCircle size={14} className="text-green-400" />
                   Comissões Ativas
+                  {metrics?.comissoes_ativas_yoy !== undefined && (
+                    <span className={`ml-2 text-xs font-mono ${getPercentageColor(metrics.comissoes_ativas_yoy)}`}>
+                      {formatPercentage(metrics.comissoes_ativas_yoy)} vs ano anterior
+                    </span>
+                  )}
                 </p>
               </div>
               <div className="bg-green-500/20 p-2 rounded-full">
@@ -236,37 +315,74 @@ export default function Dashboard() {
 
       {/* Charts Row */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Monthly Sales Chart */}
+        {/* Year-over-Year Line Chart */}
         <Card className="card-leiritrix lg:col-span-2" data-testid="monthly-chart">
           <CardHeader className="border-b border-white/5 pb-4">
             <CardTitle className="text-white font-['Manrope'] text-lg">
-              Vendas Mensais
+              Evolução de Vendas (Ano Corrente vs Ano Anterior)
             </CardTitle>
           </CardHeader>
           <CardContent className="pt-6">
             <div className="h-64">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={monthlyStats}>
+                <LineChart data={monthlyStats}>
                   <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-                  <XAxis 
-                    dataKey="month" 
+                  <XAxis
+                    dataKey="month"
                     tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
-                  <YAxis 
+                  <YAxis
                     tick={{ fill: 'rgba(255,255,255,0.6)', fontSize: 12 }}
                     axisLine={{ stroke: 'rgba(255,255,255,0.1)' }}
                   />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: '#082d32', 
-                      border: '1px solid rgba(200,243,29,0.2)',
-                      borderRadius: '0.3rem',
-                      color: 'white'
+                  <Tooltip
+                    content={({ active, payload }) => {
+                      if (active && payload && payload.length) {
+                        const data = payload[0].payload;
+                        const current = data.anoCorrente || 0;
+                        const previous = data.anoAnterior || 0;
+                        const change = previous > 0 ? ((current - previous) / previous * 100) : (current > 0 ? 100 : 0);
+                        const changeText = change >= 0 ? `+${change.toFixed(1)}%` : `${change.toFixed(1)}%`;
+                        const changeColor = change >= 0 ? '#4ade80' : '#f87171';
+
+                        return (
+                          <div className="bg-[#082d32] border border-[#c8f31d]/20 rounded p-3 text-white text-sm">
+                            <p className="font-bold mb-2">{data.month}</p>
+                            <p className="text-[#c8f31d]">Ano Corrente: {current}</p>
+                            <p className="text-[#3b82f6]">Ano Anterior: {previous}</p>
+                            <p style={{ color: changeColor }} className="font-bold mt-1">
+                              {changeText} {change >= 0 ? '↑' : '↓'}
+                            </p>
+                          </div>
+                        );
+                      }
+                      return null;
                     }}
                   />
-                  <Bar dataKey="sales" fill="#c8f31d" radius={[4, 4, 0, 0]} />
-                </BarChart>
+                  <Legend
+                    wrapperStyle={{ paddingTop: '20px' }}
+                    iconType="line"
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="anoCorrente"
+                    stroke="#c8f31d"
+                    strokeWidth={3}
+                    name="Ano Corrente"
+                    dot={{ fill: '#c8f31d', r: 4 }}
+                    activeDot={{ r: 6 }}
+                  />
+                  <Line
+                    type="monotone"
+                    dataKey="anoAnterior"
+                    stroke="#3b82f6"
+                    strokeWidth={2}
+                    strokeDasharray="5 5"
+                    name="Ano Anterior"
+                    dot={{ fill: '#3b82f6', r: 3 }}
+                  />
+                </LineChart>
               </ResponsiveContainer>
             </div>
           </CardContent>
