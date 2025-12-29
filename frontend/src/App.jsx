@@ -45,7 +45,7 @@ const AuthProvider = ({ children }) => {
 
     initAuth();
 
-    const { data: subscription } = authService.onAuthStateChange((event, session, userProfile) => {
+    const { data: { subscription } } = authService.onAuthStateChange((event, session, userProfile) => {
       if (event === 'SIGNED_IN') {
         setUser(userProfile);
       } else if (event === 'SIGNED_OUT') {
