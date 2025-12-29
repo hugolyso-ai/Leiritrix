@@ -87,7 +87,17 @@ export default function Dashboard() {
         if (sale.status !== 'ativo' || !sale.active_date) return false;
         const activeDate = new Date(sale.active_date);
         const monthsActive = (new Date() - activeDate) / (1000 * 60 * 60 * 24 * 30);
-        return monthsActive >= 11;
+        if (monthsActive < 11) return false;
+
+        const hasRefidRenewal = sales.some(otherSale =>
+          otherSale.id !== sale.id &&
+          otherSale.sale_type === 'refid' &&
+          otherSale.client_name === sale.client_name &&
+          otherSale.client_address === sale.client_address &&
+          new Date(otherSale.created_at) > new Date(sale.created_at)
+        );
+
+        return !hasRefidRenewal;
       });
 
       setMetrics({
